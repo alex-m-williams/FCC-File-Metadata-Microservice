@@ -10,15 +10,10 @@ var express = require('express');
 var app = express();
 const url = require('url');
 const https = require('https');
-
-//mongodb://fcc:fcc@ds135926.mlab.com:35926/fccimagesearch
-const dburl = 'mongodb://fcc:fcc@ds135926.mlab.com:35926/fccimagesearch';
-const mongo = require('mongodb').MongoClient;
-
-//g custom search api: AIzaSyASRCH2YLWcpEDLQnuDal5Gean9WMhTGlg
-const gSearch = 'https://content.googleapis.com/customsearch/v1?cx=011903740374000541668%3Axiqnhvafoyy&'
-const gSearchFinalParam = '&searchType=image&key=AIzaSyASRCH2YLWcpEDLQnuDal5Gean9WMhTGlg'
-//const gSearch = 'www.google.com';
+const multer = require('multer');
+const upload = multer({
+  dest: 'uploads/' // this saves your file into a directory called "uploads"
+}); 
 
 if (!process.env.DISABLE_XORIGIN) {
   app.use(function(req, res, next) {
@@ -49,82 +44,24 @@ app.route('/')
 		  res.sendFile(process.cwd() + '/views/index.html');
     })
 
-app.route('/api/imagesearch/*')
-  .get((req, res) => {
-    let routePath = '/api/imagesearch/';
-    let urlRequest = url.parse(req.url, true);
-    let pathName = urlRequest.pathname;
-    let desiredPath = pathName.slice(routePath.length, pathName.length);
-    let offset = req.query.offset;
-    let builtString = gSearch;
-    builtString += `q=${desiredPath}`;
-    if (offset >= 1) {
-      builtString += `&start=${offset}`;
-    }
-    builtString += gSearchFinalParam;
-    
-    const imageReq = https.request(builtString, (imageRes) => {
-      let imageArray = [];
-      let bufferString = "";
-      
-      imageRes.on('data', (chunk) => {
-        bufferString += chunk;
-      });
-      imageRes.on('end', function () {
-        let finalObj = JSON.parse(bufferString);
-        let latestSearch = finalObj.queries.request[0].searchTerms;
-        let newDate = new Date();
-        let latestSearchObj = {"term": latestSearch, "when": newDate};
-        finalObj = finalObj.items;
-        res.writeHead(200, {'Content-Type': 'application/json' });
-        for (let i = 0; i < finalObj.length; i++) {
-          let image = {"url": finalObj[i].link, "snippet": finalObj[i].snippet, "thumbnail": finalObj[i].image.thumbnailLink, "context": finalObj[i].image.contextLink};
-          imageArray.push(JSON.stringify(image));
-        }
-        mongo.connect(dburl, (err, database) => {
-          if (err) throw err;
-          const myAwesomeDB = database.db('fccimagesearch')
-          let docs = myAwesomeDB.collection('searches');
-          docs.insert(latestSearchObj, (err, data) => {
-             if (err) throw err;
-             console.log(JSON.stringify(latestSearchObj));
-           });
-          database.close();
-        });
-        res.write(imageArray.toString());
-        res.end();
-      });
-    });
-
-    imageReq.on('error', (e) => {
-      console.error(e);
-    });
-    imageReq.end();  
+app.post('/', multer.single('upl'), function(req,res){
+	console.log(req.body); //form fields
+	/* example output:
+	{ title: 'abc' }
+	 */
+	console.log(req.file); //form files
+	/* example output:
+            { fieldname: 'upl',
+              originalname: 'grumpy.png',
+              encoding: '7bit',
+              mimetype: 'image/png',
+              destination: './uploads/',
+              filename: '436ec561793aa4dc475a88e84776b1b9',
+              path: 'uploads/436ec561793aa4dc475a88e84776b1b9',
+              size: 277056 }
+	 */
+	res.status(204).end();
 });
-
-app.route('/api/latest/imagesearch').get((req, res) => {
-  mongo.connect(dburl, (err, database) => {
-          if (err) throw err;
-          const myAwesomeDB = database.db('fccimagesearch')
-          let docs = myAwesomeDB.collection('searches');
-          let recentSearchArray = [];
-          docs.find({}).toArray((err, result) => {
-             if (err) throw err;
-             for (let i = 0; i < result.length; i++ ){
-               console.log(result[i]);
-                let searchObj = {term: result[i].term, when: result[i].when};
-               recentSearchArray.push(JSON.stringify(searchObj));
-             }
-            res.writeHead(200, {'Content-Type': 'application/json' });
-            res.write(recentSearchArray.toString());
-            res.end();
-            database.close();
-           });   
-  });
-});
-  
-
-
 
 // Respond not found to all the wrong routes
 app.use(function(req, res, next){
