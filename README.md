@@ -1,7 +1,7 @@
-Hosted on glitch here: https://elated-pantyhose.glitch.me/
+Hosted on glitch here: https://giant-rice.glitch.me/
 
-Image Search Abstraction Layer
+File Metadata Microservice
+
 User stories:
-1) I can get the image URLs, alt text and page urls for a set of images relating to a given search string.
-2) I can paginate through the responses by adding a ?offset=2 parameter to the URL.
-3) I can get a list of the most recently submitted search strings.
+1) User Story: I can submit a FormData object that includes a file upload.
+2) When I submit something, I will receive the file size in bytes within the JSON response
